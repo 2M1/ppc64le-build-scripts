@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi9/ubi:9.3 AS build
+FROM registry.access.redhat.com/ubi9/ubi:9.5 AS build
 
 ARG APPLYMCPU=0
 
@@ -8,7 +8,7 @@ ENV PATCH_VERSION=v2.4.11
 ENV MILVUS_PACKAGE_NAME=milvus
 ENV MILVUS_PACKAGE_URL=https://github.com/milvus-io/${MILVUS_PACKAGE_NAME}.git
 ENV CMAKE_VERSION=3.30.5
-ENV GO_VERSION=1.22.6
+ENV GO_VERSION=1.23.3
 
 ENV PATCH_FILE=https://raw.githubusercontent.com/ppc64le/build-scripts/master/m/milvus/milvus-${PATCH_VERSION}.patch
 ENV PATH=${HOME}/go/bin:/usr/local/go/bin:/usr/local/cmake/bin:${PATH}
@@ -72,10 +72,18 @@ class CmakeConan(ConanFile): \n\
     conan profile update settings.compiler.libcxx=libstdc++11 default && \
     popd && \
     mkdir -p $HOME/.cargo/bin/ && \
-    make -j$(nproc)
+    make -j$(nproc); exit 0
+
+# required?
+# The Build fails due to a cargo build failure in tantivy-binding, using a outdated time package.
+# This command pdates the dependency and starts the build again.
+# rather messy but it works...
+RUN cd /tmp/${MILVUS_PACKAGE_NAME}/internal/core/thirdparty/tantivy/tantivy-binding/ && cargo update -p time
+
+RUN make -j$(nproc)
 
 
-FROM registry.access.redhat.com/ubi9/ubi:9.3
+FROM registry.access.redhat.com/ubi9/ubi:9.5
 
 ARG MILVUS_VERSION="2.4.15"
 
